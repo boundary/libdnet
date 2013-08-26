@@ -46,7 +46,27 @@ struct eth_hdr {
 #define ETH_TYPE_MPLS_MCAST	0x8848	/* MPLS Multicast */
 #define ETH_TYPE_PPPOEDISC	0x8863	/* PPP Over Ethernet Discovery Stage */
 #define ETH_TYPE_PPPOE	0x8864		/* PPP Over Ethernet Session Stage */
+#define ETH_TYPE_8021ad_0	0x88a8	/* 802.1ad spec. double tag */
 #define ETH_TYPE_LOOPBACK	0x9000	/* used to test interfaces */
+#define ETH_TYPE_8021ad_1	0x9100	/* CISCO double tagging */
+#define ETH_TYPE_8021ad_2	0x9200	/* CISCO double tagging */
+#define ETH_TYPE_8021ad_3	0x9300	/* CISCO double tagging */
+
+struct eth_vlan_hdr {
+	uint16_t	priority_c_vid;	/* priority | VLAN ID, or Tag Control ID (TCI) */
+	uint16_t	len_eth_type;	/* length or type (802.3 / Eth 2) */
+};
+
+#define ETH_8021Q_PRIMASK   0x0007	/* priority mask */
+#define ETH_8021Q_CFIMASK   0x0001    /* cfi mask */
+#define ETH_8021Q_VIDMASK   0x0fff    /* vid mask */
+
+#define ETH_TYPE_IS_VLAN(type) \
+(((type) == ETH_TYPE_8021Q) || \
+ ((type) == ETH_TYPE_8021ad_0) || \
+ ((type) == ETH_TYPE_8021ad_1) || \
+ ((type) == ETH_TYPE_8021ad_2) || \
+ ((type) == ETH_TYPE_8021ad_3))
 
 #define ETH_IS_MULTICAST(ea)	(*(ea) & 0x01) /* is address mcast/bcast? */
 
@@ -54,8 +74,8 @@ struct eth_hdr {
 
 #define eth_pack_hdr(h, dst, src, type) do {			\
 	struct eth_hdr *eth_pack_p = (struct eth_hdr *)(h);	\
-	memmove(&eth_pack_p->eth_dst, &(dst), ETH_ADDR_LEN);	\
-	memmove(&eth_pack_p->eth_src, &(src), ETH_ADDR_LEN);	\
+	memcpy(&eth_pack_p->eth_dst, &(dst), ETH_ADDR_LEN);	\
+	memcpy(&eth_pack_p->eth_src, &(src), ETH_ADDR_LEN);	\
 	eth_pack_p->eth_type = htons(type);			\
 } while (0)
 

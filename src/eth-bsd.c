@@ -47,16 +47,20 @@ eth_open(const char *device)
 	if ((e = calloc(1, sizeof(*e))) != NULL) {
 		for (i = 0; i < 128; i++) {
 			snprintf(file, sizeof(file), "/dev/bpf%d", i);
-			e->fd = open(file, O_WRONLY);
+			/* This would be O_WRONLY, but Mac OS X 10.6 has a bug
+			   where that prevents other users of the interface
+			   from seeing incoming traffic, even in other
+			   processes. */
+			e->fd = open(file, O_RDWR);
 			if (e->fd != -1 || errno != EBUSY)
 				break;
 		}
 		if (e->fd < 0)
 			return (eth_close(e));
-		
+
 		memset(&ifr, 0, sizeof(ifr));
 		strlcpy(ifr.ifr_name, device, sizeof(ifr.ifr_name));
-		
+
 		if (ioctl(e->fd, BIOCSETIF, (char *)&ifr) < 0)
 			return (eth_close(e));
 #ifdef BIOCSHDRCMPLT
@@ -99,10 +103,10 @@ eth_get(eth_t *e, eth_addr_t *ea)
 
 	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0)
 		return (-1);
-	
+
 	if ((buf = malloc(len)) == NULL)
 		return (-1);
-	
+
 	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
 		free(buf);
 		return (-1);
@@ -110,26 +114,26 @@ eth_get(eth_t *e, eth_addr_t *ea)
 	for (p = buf; p < buf + len; p += ifm->ifm_msglen) {
 		ifm = (struct if_msghdr *)p;
 		sdl = (struct sockaddr_dl *)(ifm + 1);
-		
+
 		if (ifm->ifm_type != RTM_IFINFO ||
 		    (ifm->ifm_addrs & RTA_IFP) == 0)
 			continue;
-		
+
 		if (sdl->sdl_family != AF_LINK || sdl->sdl_nlen == 0 ||
 		    memcmp(sdl->sdl_data, e->device, sdl->sdl_nlen) != 0)
 			continue;
-		
+
 		if (addr_ston((struct sockaddr *)sdl, &ha) == 0)
 			break;
 	}
 	free(buf);
-	
+
 	if (p >= buf + len) {
 		errno = ESRCH;
 		return (-1);
 	}
 	memcpy(ea, &ha.addr_eth, sizeof(*ea));
-	
+
 	return (0);
 }
 #else
@@ -151,11 +155,11 @@ eth_set(eth_t *e, const eth_addr_t *ea)
 	ha.addr_type = ADDR_TYPE_ETH;
 	ha.addr_bits = ETH_ADDR_BITS;
 	memcpy(&ha.addr_eth, ea, ETH_ADDR_LEN);
-	
+
 	memset(&ifr, 0, sizeof(ifr));
 	strlcpy(ifr.ifr_name, e->device, sizeof(ifr.ifr_name));
 	addr_ntos(&ha, &ifr.ifr_addr);
-	
+
 	return (ioctl(e->fd, SIOCSIFLLADDR, &ifr));
 }
 #else

@@ -12,7 +12,7 @@
 #define DNET_BLOB_H
 
 typedef struct blob {
-	u_char		*base;		/* start of data */
+	unsigned char *base;		/* start of data */
 	int		 off;		/* offset into data */
 	int		 end;		/* end of data */
 	int		 size;		/* size of allocation */

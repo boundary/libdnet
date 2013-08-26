@@ -15,10 +15,6 @@
 # define _SOCKADDR_LEN	1
 #endif
 
-#ifndef HAVE_INET_PTON
-int	inet_pton(int, const char *, void *);
-#endif
-
 #ifndef HAVE_STRLCAT
 int	strlcat(char *, const char *, int);
 #endif

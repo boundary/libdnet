@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2001 Dug Song <dugsong@monkey.org>
  * Copyright (c) 1999 Masaki Hirabaru <masaki@merit.edu>
- * 
+ *
  * $Id: route-bsd.c 555 2005-02-10 05:18:38Z dugsong $
  */
 
@@ -28,10 +28,14 @@
 #include <sys/stream.h>
 #include <sys/stropts.h>
 #endif
+#ifdef HAVE_GETKERNINFO
+#include <sys/kinfo.h>
+#endif
 
 #define route_t	oroute_t	/* XXX - unixware */
 #include <net/route.h>
 #undef route_t
+#include <net/if.h>
 #include <netinet/in.h>
 
 #include <errno.h>
@@ -43,8 +47,28 @@
 
 #include "dnet.h"
 
+/* Unix Network Programming, 3rd edition says that sockaddr structures in
+   rt_msghdr should be padded so their addresses start on a multiple of
+   sizeof(u_long). But on 64-bit Mac OS X 10.6 at least, this is false. Apple's
+   netstat code uses 4-byte padding, not 8-byte. This is relevant for IPv6
+   addresses, for which sa_len == 28.
+
+http://www.opensource.apple.com/source/network_cmds/network_cmds-329.2.2/netstat.tproj/route.c
+*/
+#ifdef __APPLE__
+#define RT_MSGHDR_ALIGNMENT sizeof(uint32_t)
+#else
+#define RT_MSGHDR_ALIGNMENT sizeof(unsigned long)
+#endif
+
+#ifdef RT_ROUNDUP
+/* NetBSD defines this macro rounding to 64-bit boundaries.
+   http://fxr.watson.org/fxr/ident?v=NETBSD;i=RT_ROUNDUP */
+#define ROUNDUP(a) RT_ROUNDUP(a)
+#else
 #define ROUNDUP(a) \
-	((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+	((a) > 0 ? (1 + (((a) - 1) | (RT_MSGHDR_ALIGNMENT - 1))) : RT_MSGHDR_ALIGNMENT)
+#endif
 
 #ifdef HAVE_SOCKADDR_SA_LEN
 #define NEXTSA(s) \
@@ -73,7 +97,7 @@ route_msg_print(struct rt_msghdr *rtm)
 #endif
 
 static int
-route_msg(route_t *r, int type, struct addr *dst, struct addr *gw)
+route_msg(route_t *r, int type, char intf_name[INTF_NAME_LEN], struct addr *dst, struct addr *gw)
 {
 	struct addr net;
 	struct rt_msghdr *rtm;
@@ -113,7 +137,7 @@ route_msg(route_t *r, int type, struct addr *dst, struct addr *gw)
 		sa = NEXTSA(sa);
 	} else
 		rtm->rtm_flags |= RTF_HOST;
-	
+
 	rtm->rtm_msglen = (u_char *)sa - buf;
 #ifdef DEBUG
 	route_msg_print(rtm);
@@ -126,7 +150,7 @@ route_msg(route_t *r, int type, struct addr *dst, struct addr *gw)
 		return (-1);
 
 	pid = getpid();
-	
+
 	while (type == RTM_GET && (len = read(r->fd, buf, sizeof(buf))) > 0) {
 		if (len < (int)sizeof(*rtm)) {
 			return (-1);
@@ -145,10 +169,20 @@ route_msg(route_t *r, int type, struct addr *dst, struct addr *gw)
 	    (RTA_DST|RTA_GATEWAY)) {
 		sa = (struct sockaddr *)(rtm + 1);
 		sa = NEXTSA(sa);
-		
+
 		if (addr_ston(sa, gw) < 0 || gw->addr_type != ADDR_TYPE_IP) {
 			errno = ESRCH;
 			return (-1);
+		}
+
+		if (intf_name != NULL) {
+			char namebuf[IF_NAMESIZE];
+
+			if (if_indextoname(rtm->rtm_index, namebuf) == NULL) {
+				errno = ESRCH;
+				return (-1);
+			}
+			strlcpy(intf_name, namebuf, sizeof(intf_name));
 		}
 	}
 	return (0);
@@ -158,7 +192,7 @@ route_t *
 route_open(void)
 {
 	route_t *r;
-	
+
 	if ((r = calloc(1, sizeof(*r))) != NULL) {
 		r->fd = -1;
 #ifdef HAVE_STREAMS_MIB2
@@ -179,12 +213,12 @@ int
 route_add(route_t *r, const struct route_entry *entry)
 {
 	struct route_entry rtent;
-	
+
 	memcpy(&rtent, entry, sizeof(rtent));
-	
-	if (route_msg(r, RTM_ADD, &rtent.route_dst, &rtent.route_gw) < 0)
+
+	if (route_msg(r, RTM_ADD, NULL, &rtent.route_dst, &rtent.route_gw) < 0)
 		return (-1);
-	
+
 	return (0);
 }
 
@@ -192,28 +226,57 @@ int
 route_delete(route_t *r, const struct route_entry *entry)
 {
 	struct route_entry rtent;
-	
+
 	memcpy(&rtent, entry, sizeof(rtent));
-	
+
 	if (route_get(r, &rtent) < 0)
 		return (-1);
-	
-	if (route_msg(r, RTM_DELETE, &rtent.route_dst, &rtent.route_gw) < 0)
+
+	if (route_msg(r, RTM_DELETE, NULL, &rtent.route_dst, &rtent.route_gw) < 0)
 		return (-1);
-	
+
 	return (0);
 }
 
 int
 route_get(route_t *r, struct route_entry *entry)
 {
-	if (route_msg(r, RTM_GET, &entry->route_dst, &entry->route_gw) < 0)
+	if (route_msg(r, RTM_GET, entry->intf_name, &entry->route_dst, &entry->route_gw) < 0)
 		return (-1);
-	
+	entry->intf_name[0] = '\0';
+	entry->metric = 0;
+
 	return (0);
 }
 
-#if defined(HAVE_SYS_SYSCTL_H) || defined(HAVE_STREAMS_ROUTE)
+#if defined(HAVE_SYS_SYSCTL_H) || defined(HAVE_STREAMS_ROUTE) || defined(HAVE_GETKERNINFO)
+/* This wrapper around addr_ston, on failure, checks for a gateway address
+ * family of AF_LINK, and if it finds one, stores an all-zero address of the
+ * same type as dst. The all-zero address is a convention for same-subnet
+ * routing table entries. */
+static int
+addr_ston_gateway(const struct addr *dst,
+	const struct sockaddr *sa, struct addr *a)
+{
+	int rc;
+
+	rc = addr_ston(sa, a);
+	if (rc == 0)
+		return rc;
+
+#ifdef HAVE_NET_IF_DL_H
+# ifdef AF_LINK
+	if (sa->sa_family == AF_LINK) {
+		memset(a, 0, sizeof(*a));
+		a->addr_type = dst->addr_type;
+		return (0);
+	}
+# endif
+#endif
+
+	return (-1);
+}
+
 int
 route_loop(route_t *r, route_handler callback, void *arg)
 {
@@ -225,17 +288,32 @@ route_loop(route_t *r, route_handler callback, void *arg)
 #ifdef HAVE_SYS_SYSCTL_H
 	int mib[6] = { CTL_NET, PF_ROUTE, 0, 0 /* XXX */, NET_RT_DUMP, 0 };
 	size_t len;
-	
+
 	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0)
 		return (-1);
 
 	if (len == 0)
 		return (0);
-	
+
 	if ((buf = malloc(len)) == NULL)
 		return (-1);
-	
+
 	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
+		free(buf);
+		return (-1);
+	}
+	lim = buf + len;
+	next = buf;
+#elif defined(HAVE_GETKERNINFO)
+	int len = getkerninfo(KINFO_RT_DUMP,0,0,0);
+
+	if (len == 0)
+		return (0);
+
+	if ((buf = malloc(len)) == NULL)
+		return (-1);
+
+	if (getkerninfo(KINFO_RT_DUMP,buf,&len,0) < 0) {
 		free(buf);
 		return (-1);
 	}
@@ -266,19 +344,31 @@ route_loop(route_t *r, route_handler callback, void *arg)
 	lim = buf + gp->gi_size;
 	next = buf + sizeof(giarg);
 #endif
+	/* This loop assumes that RTA_DST, RTA_GATEWAY, and RTA_NETMASK have the
+	 * values, 1, 2, and 4 respectively. Cf. Unix Network Programming,
+	 * p. 494, function get_rtaddrs. */
 	for (ret = 0; next < lim; next += rtm->rtm_msglen) {
+		char namebuf[IF_NAMESIZE];
 		rtm = (struct rt_msghdr *)next;
 		sa = (struct sockaddr *)(rtm + 1);
 
-		if (addr_ston(sa, &entry.route_dst) < 0 ||
-		    (rtm->rtm_addrs & RTA_GATEWAY) == 0)
+		if (if_indextoname(rtm->rtm_index, namebuf) == NULL)
+			continue;
+		strlcpy(entry.intf_name, namebuf, sizeof(entry.intf_name));
+
+		if ((rtm->rtm_addrs & RTA_DST) == 0)
+			/* Need a destination. */
+			continue;
+		if (addr_ston(sa, &entry.route_dst) < 0)
 			continue;
 
-		sa = NEXTSA(sa);
-		
-		if (addr_ston(sa, &entry.route_gw) < 0)
+		if ((rtm->rtm_addrs & RTA_GATEWAY) == 0)
+			/* Need a gateway. */
 			continue;
-		
+		sa = NEXTSA(sa);
+		if (addr_ston_gateway(&entry.route_dst, sa, &entry.route_gw) < 0)
+			continue;
+
 		if (entry.route_dst.addr_type != entry.route_gw.addr_type ||
 		    (entry.route_dst.addr_type != ADDR_TYPE_IP &&
 			entry.route_dst.addr_type != ADDR_TYPE_IP6))
@@ -289,11 +379,14 @@ route_loop(route_t *r, route_handler callback, void *arg)
 			if (addr_stob(sa, &entry.route_dst.addr_bits) < 0)
 				continue;
 		}
+
+		entry.metric = 0;
+
 		if ((ret = callback(&entry, arg)) != 0)
 			break;
 	}
 	free(buf);
-	
+
 	return (ret);
 }
 #elif defined(HAVE_STREAMS_MIB2)
@@ -308,13 +401,11 @@ int
 route_loop(route_t *r, route_handler callback, void *arg)
 {
 	struct route_entry entry;
-	struct sockaddr_in sin;
 	struct strbuf msg;
 	struct T_optmgmt_req *tor;
 	struct T_optmgmt_ack *toa;
 	struct T_error_ack *tea;
 	struct opthdr *opt;
-	mib2_ipRouteEntry_t *rt, *rtend;
 	u_char buf[8192];
 	int flags, rc, rtable, ret;
 
@@ -326,22 +417,24 @@ route_loop(route_t *r, route_handler callback, void *arg)
 	tor->OPT_offset = sizeof(*tor);
 	tor->OPT_length = sizeof(*opt);
 	tor->MGMT_flags = T_CURRENT;
-	
+
 	opt = (struct opthdr *)(tor + 1);
 	opt->level = MIB2_IP;
 	opt->name = opt->len = 0;
-	
+
 	msg.maxlen = sizeof(buf);
 	msg.len = sizeof(*tor) + sizeof(*opt);
 	msg.buf = buf;
-	
+
 	if (putmsg(r->ip_fd, &msg, NULL, 0) < 0)
 		return (-1);
-	
+
 	opt = (struct opthdr *)(toa + 1);
 	msg.maxlen = sizeof(buf);
-	
+
 	for (;;) {
+		mib2_ipRouteEntry_t *rt, *rtend;
+
 		flags = 0;
 		if ((rc = getmsg(r->ip_fd, &msg, NULL, &flags)) < 0)
 			return (-1);
@@ -355,27 +448,29 @@ route_loop(route_t *r, route_handler callback, void *arg)
 
 		if (msg.len >= sizeof(*tea) && tea->PRIM_type == T_ERROR_ACK)
 			return (-1);
-		
+
 		if (rc != MOREDATA || msg.len < (int)sizeof(*toa) ||
 		    toa->PRIM_type != T_OPTMGMT_ACK ||
 		    toa->MGMT_flags != T_SUCCESS)
 			return (-1);
-		
+
 		rtable = (opt->level == MIB2_IP && opt->name == MIB2_IP_21);
-		
+
 		msg.maxlen = sizeof(buf) - (sizeof(buf) % sizeof(*rt));
 		msg.len = 0;
 		flags = 0;
-		
+
 		do {
+			struct sockaddr_in sin;
+
 			rc = getmsg(r->ip_fd, NULL, &msg, &flags);
-			
+
 			if (rc != 0 && rc != MOREDATA)
 				return (-1);
-			
+
 			if (!rtable)
 				continue;
-			
+
 			rt = (mib2_ipRouteEntry_t *)msg.buf;
 			rtend = (mib2_ipRouteEntry_t *)(msg.buf + msg.len);
 
@@ -387,19 +482,115 @@ route_loop(route_t *r, route_handler callback, void *arg)
 					IRE_LOCAL|IRE_ROUTE)) != 0 ||
 				    rt->ipRouteNextHop == IP_ADDR_ANY)
 					continue;
-				
+
+				entry.intf_name[0] = '\0';
+
 				sin.sin_addr.s_addr = rt->ipRouteNextHop;
 				addr_ston((struct sockaddr *)&sin,
 				    &entry.route_gw);
-				
+
 				sin.sin_addr.s_addr = rt->ipRouteDest;
 				addr_ston((struct sockaddr *)&sin,
 				    &entry.route_dst);
-				
+
 				sin.sin_addr.s_addr = rt->ipRouteMask;
 				addr_stob((struct sockaddr *)&sin,
 				    &entry.route_dst.addr_bits);
-				
+
+				entry.metric = 0;
+
+				if ((ret = callback(&entry, arg)) != 0)
+					return (ret);
+			}
+		} while (rc == MOREDATA);
+	}
+
+	tor = (struct T_optmgmt_req *)buf;
+	toa = (struct T_optmgmt_ack *)buf;
+	tea = (struct T_error_ack *)buf;
+
+	tor->PRIM_type = T_OPTMGMT_REQ;
+	tor->OPT_offset = sizeof(*tor);
+	tor->OPT_length = sizeof(*opt);
+	tor->MGMT_flags = T_CURRENT;
+
+	opt = (struct opthdr *)(tor + 1);
+	opt->level = MIB2_IP6;
+	opt->name = opt->len = 0;
+
+	msg.maxlen = sizeof(buf);
+	msg.len = sizeof(*tor) + sizeof(*opt);
+	msg.buf = buf;
+
+	if (putmsg(r->ip_fd, &msg, NULL, 0) < 0)
+		return (-1);
+
+	opt = (struct opthdr *)(toa + 1);
+	msg.maxlen = sizeof(buf);
+
+	for (;;) {
+		mib2_ipv6RouteEntry_t *rt, *rtend;
+
+		flags = 0;
+		if ((rc = getmsg(r->ip_fd, &msg, NULL, &flags)) < 0)
+			return (-1);
+
+		/* See if we're finished. */
+		if (rc == 0 &&
+		    msg.len >= sizeof(*toa) &&
+		    toa->PRIM_type == T_OPTMGMT_ACK &&
+		    toa->MGMT_flags == T_SUCCESS && opt->len == 0)
+			break;
+
+		if (msg.len >= sizeof(*tea) && tea->PRIM_type == T_ERROR_ACK)
+			return (-1);
+
+		if (rc != MOREDATA || msg.len < (int)sizeof(*toa) ||
+		    toa->PRIM_type != T_OPTMGMT_ACK ||
+		    toa->MGMT_flags != T_SUCCESS)
+			return (-1);
+
+		rtable = (opt->level == MIB2_IP6 && opt->name == MIB2_IP6_ROUTE);
+
+		msg.maxlen = sizeof(buf) - (sizeof(buf) % sizeof(*rt));
+		msg.len = 0;
+		flags = 0;
+
+		do {
+			struct sockaddr_in6 sin6;
+
+			rc = getmsg(r->ip_fd, NULL, &msg, &flags);
+
+			if (rc != 0 && rc != MOREDATA)
+				return (-1);
+
+			if (!rtable)
+				continue;
+
+			rt = (mib2_ipv6RouteEntry_t *)msg.buf;
+			rtend = (mib2_ipv6RouteEntry_t *)(msg.buf + msg.len);
+
+			sin6.sin6_family = AF_INET6;
+
+			for ( ; rt < rtend; rt++) {
+				if ((rt->ipv6RouteInfo.re_ire_type &
+				    (IRE_BROADCAST|IRE_ROUTE_REDIRECT|
+					IRE_LOCAL|IRE_ROUTE)) != 0 ||
+				    memcmp(&rt->ipv6RouteNextHop, IP6_ADDR_UNSPEC, IP6_ADDR_LEN) == 0)
+					continue;
+
+				entry.intf_name[0] = '\0';
+
+				sin6.sin6_addr = rt->ipv6RouteNextHop;
+				addr_ston((struct sockaddr *)&sin6,
+				    &entry.route_gw);
+
+				sin6.sin6_addr = rt->ipv6RouteDest;
+				addr_ston((struct sockaddr *)&sin6,
+				    &entry.route_dst);
+
+				entry.route_dst.addr_bits = rt->ipv6RoutePfxLength;
+
 				if ((ret = callback(&entry, arg)) != 0)
 					return (ret);
 			}
@@ -431,6 +622,7 @@ _radix_walk(int fd, struct radix_node *rn, route_handler callback, void *arg)
 	_kread(fd, rn, &rnode, sizeof(rnode));
 	if (rnode.rn_b < 0) {
 		if (!(rnode.rn_flags & RNF_ROOT)) {
+			entry.intf_name[0] = '\0';
 			_kread(fd, rn, &rt, sizeof(rt));
 			_kread(fd, rt_key(&rt), &sin, sizeof(sin));
 			addr_ston((struct sockaddr *)&sin, &entry.route_dst);
@@ -441,6 +633,7 @@ _radix_walk(int fd, struct radix_node *rn, route_handler callback, void *arg)
 			}
 			_kread(fd, rt.rt_gateway, &sin, sizeof(sin));
 			addr_ston((struct sockaddr *)&sin, &entry.route_gw);
+			entry.metric = 0;
 			if ((ret = callback(&entry, arg)) != 0)
 				return (ret);
 		}
@@ -465,11 +658,11 @@ route_loop(route_t *r, route_handler callback, void *arg)
 
 	memset(nl, 0, sizeof(nl));
 	nl[0].n_name = "radix_node_head";
-	
+
 	if (knlist(nl) < 0 || nl[0].n_type == 0 ||
 	    (fd = open("/dev/kmem", O_RDONLY, 0)) < 0)
 		return (-1);
-	
+
 	for (_kread(fd, (void *)nl[0].n_value, &rnh, sizeof(rnh));
 	    rnh != NULL; rnh = head.rnh_next) {
 		_kread(fd, rnh, &head, sizeof(head));

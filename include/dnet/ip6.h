@@ -78,6 +78,17 @@ struct ip6_hdr {
  * IP_PROTO_FRAGMENT, IP_PROTO_AH, IP_PROTO_ESP, IP_PROTO_DSTOPTS, IP_PROTO_*
  */
 
+#define IP6_EXT_HEADER(val) \
+((val) == IP_PROTO_HOPOPTS || \
+ (val) == IP_PROTO_DSTOPTS || \
+ (val) == IP_PROTO_ROUTING || \
+ (val) == IP_PROTO_FRAGMENT || \
+ (val) == IP_PROTO_AH || \
+ (val) == IP_PROTO_ESP || \
+ (val) == IP_PROTO_NONE || \
+ (val) == IP_PROTO_DSTOPTS || \
+ (val) == IP_PROTO_MOBILITY)
+
 /*
  * Routing header data (IP_PROTO_ROUTING)
  */
@@ -169,8 +180,8 @@ struct ip6_ext_hdr {
 	ip6->ip6_vfc = (IP6_VERSION | ((fc) >> 4));			\
 	ip6->ip6_plen = htons((plen));					\
 	ip6->ip6_nxt = (nxt); ip6->ip6_hlim = (hlim);			\
-	memmove(&ip6->ip6_src, &(src), IP6_ADDR_LEN);			\
-	memmove(&ip6->ip6_dst, &(dst), IP6_ADDR_LEN);			\
+	memcpy(&ip6->ip6_src, &(src), IP6_ADDR_LEN);			\
+	memcpy(&ip6->ip6_dst, &(dst), IP6_ADDR_LEN);			\
 } while (0);
 
 __BEGIN_DECLS

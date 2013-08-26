@@ -2,6 +2,8 @@
 
 include $(top_srcdir)/Makefile.am.common
 
+ACLOCAL_AMFLAGS = -I m4
+
 SUBDIRS =	include man src python test
 
 bin_SCRIPTS =	dnet-config

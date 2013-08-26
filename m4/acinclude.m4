@@ -4,7 +4,7 @@ dnl
 dnl usage:	AC_DNET_SOCKADDR_SA_LEN
 dnl results:	HAVE_SOCKADDR_SA_LEN (defined)
 dnl
-AC_DEFUN(AC_DNET_SOCKADDR_SA_LEN,
+AC_DEFUN([AC_DNET_SOCKADDR_SA_LEN],
     [AC_MSG_CHECKING(for sa_len in sockaddr struct)
     AC_CACHE_VAL(ac_cv_dnet_sockaddr_has_sa_len,
         AC_TRY_COMPILE([
@@ -28,7 +28,7 @@ dnl
 dnl usage:	AC_DNET_SOCKADDR_IN6
 dnl results:	HAVE_SOCKADDR_IN6
 dnl
-AC_DEFUN(AC_DNET_SOCKADDR_IN6,
+AC_DEFUN([AC_DNET_SOCKADDR_IN6],
     [AC_MSG_CHECKING(for sockaddr_in6 struct in <netinet/in.h>)
     AC_CACHE_VAL(ac_cv_dnet_netinet_in_h_has_sockaddr_in6,
         AC_TRY_COMPILE([
@@ -50,7 +50,7 @@ dnl
 dnl usage:	AC_DNET_ARPREQ_ARP_DEV
 dnl results:	HAVE_ARPREQ_ARP_DEV (defined)
 dnl
-AC_DEFUN(AC_DNET_ARPREQ_ARP_DEV,
+AC_DEFUN([AC_DNET_ARPREQ_ARP_DEV],
     [AC_MSG_CHECKING(for arp_dev in arpreq struct)
     AC_CACHE_VAL(ac_cv_dnet_arpreq_has_arp_dev,
 	AC_TRY_COMPILE([
@@ -72,7 +72,7 @@ dnl
 dnl usage:	AC_DNET_ROUTE_RT_MSGHDR
 dnl results:	HAVE_ROUTE_RT_MSGHDR
 dnl
-AC_DEFUN(AC_DNET_ROUTE_RT_MSGHDR,
+AC_DEFUN([AC_DNET_ROUTE_RT_MSGHDR],
     [AC_MSG_CHECKING(for rt_msghdr struct in <net/route.h>)
     AC_CACHE_VAL(ac_cv_dnet_route_h_has_rt_msghdr,
         AC_TRY_COMPILE([
@@ -95,7 +95,7 @@ dnl
 dnl usage:	AC_DNET_BSD_BPF
 dnl results:	HAVE_BSD_BPF
 dnl
-AC_DEFUN(AC_DNET_BSD_BPF,
+AC_DEFUN([AC_DNET_BSD_BPF],
     [AC_MSG_CHECKING(for Berkeley Packet Filter)
     AC_CACHE_VAL(ac_cv_dnet_bsd_bpf,
 	if test -c /dev/bpf0 ; then
@@ -115,7 +115,7 @@ dnl
 dnl usage:	AC_DNET_LINUX_PROCFS
 dnl results:	HAVE_LINUX_PROCFS
 dnl
-AC_DEFUN(AC_DNET_LINUX_PROCFS,
+AC_DEFUN([AC_DNET_LINUX_PROCFS],
     [AC_MSG_CHECKING(for Linux proc filesystem)
     AC_CACHE_VAL(ac_cv_dnet_linux_procfs,
 	if test "x`cat /proc/sys/kernel/ostype 2>&-`" = "xLinux" ; then
@@ -138,6 +138,7 @@ dnl
 dnl This is a Linux-specific check, even though other operating systems
 dnl (OpenSolaris) may have the PF_PACKET interface. The eth-linux.c code
 dnl activated by this check is specific to Linux.
+AC_DEFUN([AC_DNET_LINUX_PF_PACKET],
     [AC_CHECK_DECL([ETH_P_ALL],
        ac_cv_dnet_linux_pf_packet=yes,
        ac_cv_dnet_linux_pf_packet=no,
@@ -150,13 +151,14 @@ dnl activated by this check is specific to Linux.
     if test $ac_cv_dnet_linux_pf_packet = yes ; then
 	AC_DEFINE(HAVE_LINUX_PF_PACKET, 1,
 		  [Define if you have Linux PF_PACKET sockets.])
+	fi])
 dnl
 dnl Check for SNMP MIB2 STREAMS (Solaris only?)
 dnl
 dnl usage:      AC_DNET_STREAMS_MIB2
 dnl results:    HAVE_STREAMS_MIB2
 dnl
-AC_DEFUN(AC_DNET_STREAMS_MIB2,
+AC_DEFUN([AC_DNET_STREAMS_MIB2],
     [AC_MSG_CHECKING(for SNMP MIB2 STREAMS)
     AC_CACHE_VAL(ac_cv_dnet_streams_mib2,
         if test -f /usr/include/inet/mib2.h -a -c /dev/ip ; then
@@ -176,7 +178,7 @@ dnl
 dnl usage:      AC_DNET_STREAMS_ROUTE
 dnl results:    HAVE_STREAMS_ROUTE
 dnl
-AC_DEFUN(AC_DNET_STREAMS_ROUTE,
+AC_DEFUN([AC_DNET_STREAMS_ROUTE],
     [AC_MSG_CHECKING(for route(7) STREAMS)
     AC_CACHE_VAL(ac_cv_dnet_streams_route,
         if grep RTSTR_SEND /usr/include/net/route.h >/dev/null 2>&1 ; then
@@ -196,7 +198,7 @@ dnl
 dnl usage:      AC_DNET_IOCTL_ARP
 dnl results:    HAVE_IOCTL_ARP
 dnl
-AC_DEFUN(AC_DNET_IOCTL_ARP,
+AC_DEFUN([AC_DNET_IOCTL_ARP],
     [AC_MSG_CHECKING(for arp(7) ioctls)
     AC_CACHE_VAL(ac_cv_dnet_ioctl_arp,
 	AC_EGREP_CPP(werd, [
@@ -224,7 +226,7 @@ dnl
 dnl usage:      AC_DNET_RAWIP_HOST_OFFLEN
 dnl results:    HAVE_RAWIP_HOST_OFFLEN
 dnl
-AC_DEFUN(AC_DNET_RAWIP_HOST_OFFLEN,
+AC_DEFUN([AC_DNET_RAWIP_HOST_OFFLEN],
     [AC_MSG_CHECKING([for raw IP sockets ip_{len,off} host byte ordering])
     AC_CACHE_VAL(ac_cv_dnet_rawip_host_offlen, [
 	case "$host_os" in
@@ -247,7 +249,7 @@ dnl
 dnl usage:      AC_DNET_RAWIP_COOKED
 dnl results:    HAVE_RAWIP_COOKED
 dnl
-AC_DEFUN(AC_DNET_RAWIP_COOKED,
+AC_DEFUN([AC_DNET_RAWIP_COOKED],
     [AC_MSG_CHECKING(for cooked raw IP sockets)
     AC_CACHE_VAL(ac_cv_dnet_rawip_cooked, [
 	case "$host_os" in
@@ -297,7 +299,7 @@ dnl The check for libresolv is in case you are attempting to link
 dnl statically and happen to have a libresolv.a lying around (and no
 dnl libnsl.a).
 dnl
-AC_DEFUN(AC_LBL_LIBRARY_NET, [
+AC_DEFUN([AC_LBL_LIBRARY_NET], [
     # Most operating systems have gethostbyname() in the default searched
     # libraries (i.e. libc):
     AC_CHECK_FUNC(gethostbyname, ,

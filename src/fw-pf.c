@@ -72,9 +72,9 @@ static void
 fr_to_pr(const struct fw_rule *fr, struct pf_rule *pr)
 {
 	memset(pr, 0, sizeof(*pr));
-	
+
 	strlcpy(pr->ifname, fr->fw_device, sizeof(pr->ifname));
-	
+
 	pr->action = (fr->fw_op == FW_OP_ALLOW) ? PF_PASS : PF_DROP;
 	pr->direction = (fr->fw_dir == FW_DIR_IN) ? PF_IN : PF_OUT;
 	pr->proto = fr->fw_proto;
@@ -82,10 +82,10 @@ fr_to_pr(const struct fw_rule *fr, struct pf_rule *pr)
 	pr->af = AF_INET;
 	PFRA_ADDR(&pr->src) = fr->fw_src.addr_ip;
 	addr_btom(fr->fw_src.addr_bits, &(PFRA_MASK(&pr->src)), IP_ADDR_LEN);
-	
+
 	PFRA_ADDR(&pr->dst) = fr->fw_dst.addr_ip;
 	addr_btom(fr->fw_dst.addr_bits, &(PFRA_MASK(&pr->dst)), IP_ADDR_LEN);
-	
+
 	switch (fr->fw_proto) {
 	case IP_PROTO_ICMP:
 		if (fr->fw_sport[1])
@@ -118,7 +118,7 @@ static int
 pr_to_fr(const struct pf_rule *pr, struct fw_rule *fr)
 {
 	memset(fr, 0, sizeof(*fr));
-	
+
 	strlcpy(fr->fw_device, pr->ifname, sizeof(fr->fw_device));
 
 	if (pr->action == PF_DROP)
@@ -127,21 +127,21 @@ pr_to_fr(const struct pf_rule *pr, struct fw_rule *fr)
 		fr->fw_op = FW_OP_ALLOW;
 	else
 		return (-1);
-	
+
 	fr->fw_dir = pr->direction == PF_IN ? FW_DIR_IN : FW_DIR_OUT;
 	fr->fw_proto = pr->proto;
 
 	if (pr->af != AF_INET)
 		return (-1);
-	
+
 	fr->fw_src.addr_type = ADDR_TYPE_IP;
 	addr_mtob(&(PFRA_MASK(&pr->src)), IP_ADDR_LEN, &fr->fw_src.addr_bits);
 	fr->fw_src.addr_ip = PFRA_ADDR(&pr->src);
-	
+
  	fr->fw_dst.addr_type = ADDR_TYPE_IP;
 	addr_mtob(&(PFRA_MASK(&pr->dst)), IP_ADDR_LEN, &fr->fw_dst.addr_bits);
 	fr->fw_dst.addr_ip = PFRA_ADDR(&pr->dst);
-	
+
 	switch (fr->fw_proto) {
 	case IP_PROTO_ICMP:
 		if (pr->type) {
@@ -205,7 +205,7 @@ fw_add(fw_t *fw, const struct fw_rule *rule)
 #ifdef HAVE_PF_CHANGE_GET_TICKET
 	{
 		struct fw_rule fr;
-		
+
 		if (ioctl(fw->fd, DIOCGETRULES, &pcr) < 0)
 			return (-1);
 		while ((int)--pcr.nr >= 0) {
@@ -222,7 +222,7 @@ fw_add(fw_t *fw, const struct fw_rule *rule)
 #ifdef DIOCBEGINADDRS
 	{
 		struct pfioc_pooladdr ppa;
-		
+
 		if (ioctl(fw->fd, DIOCBEGINADDRS, &ppa) < 0)
 			return (-1);
 		pcr.pool_ticket = ppa.ticket;
@@ -230,7 +230,7 @@ fw_add(fw_t *fw, const struct fw_rule *rule)
 #endif
 	pcr.action = PF_CHANGE_ADD_TAIL;
 	fr_to_pr(rule, &pcr.newrule);
-	
+
 	return (ioctl(fw->fd, DIOCCHANGERULE, &pcr));
 }
 
@@ -238,14 +238,14 @@ int
 fw_delete(fw_t *fw, const struct fw_rule *rule)
 {
 	struct pfioc_changerule pcr;
-	
+
 	assert(fw != NULL && rule != NULL);
 	memset(&pcr, 0, sizeof(pcr));
 #ifdef HAVE_PF_CHANGE_GET_TICKET
 	{
 		struct fw_rule fr;
 		int found = 0;
-		
+
 		if (ioctl(fw->fd, DIOCGETRULES, &pcr) < 0)
 			return (-1);
 		while ((int)--pcr.nr >= 0) {
@@ -266,7 +266,7 @@ fw_delete(fw_t *fw, const struct fw_rule *rule)
 #ifdef DIOCBEGINADDRS
 	{
 		struct pfioc_pooladdr ppa;
-		
+
 		if (ioctl(fw->fd, DIOCBEGINADDRS, &ppa) < 0)
 			return (-1);
 		pcr.pool_ticket = ppa.ticket;
@@ -274,7 +274,7 @@ fw_delete(fw_t *fw, const struct fw_rule *rule)
 #endif
 	pcr.action = PF_CHANGE_REMOVE;
 	fr_to_pr(rule, &pcr.oldrule);
-	
+
 	return (ioctl(fw->fd, DIOCCHANGERULE, &pcr));
 }
 
@@ -289,10 +289,10 @@ fw_loop(fw_t *fw, fw_handler callback, void *arg)
 	memset(&pr, 0, sizeof(pr));
 	if (ioctl(fw->fd, DIOCGETRULES, &pr) < 0)
 		return (-1);
-	
+
 	for (n = 0, max = pr.nr; n < max; n++) {
 		pr.nr = n;
-		
+
 		if ((ret = ioctl(fw->fd, DIOCGETRULE, &pr)) < 0)
 			break;
 #ifdef PF_TABLE_NAME_SIZE

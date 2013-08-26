@@ -35,7 +35,7 @@ ip_open(void)
 		if ((ip->fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) ==
 		    INVALID_SOCKET)
 			return (ip_close(ip));
-		
+
 		on = TRUE;
 		if (setsockopt(ip->fd, IPPROTO_IP, IP_HDRINCL,
 			(const char *)&on, sizeof(on)) == SOCKET_ERROR) {
@@ -52,13 +52,13 @@ ssize_t
 ip_send(ip_t *ip, const void *buf, size_t len)
 {
 	struct ip_hdr *hdr = (struct ip_hdr *)buf;
-	
+
 	ip->sin.sin_addr.s_addr = hdr->ip_src;
-	
+
 	if ((len = sendto(ip->fd, (const char *)buf, len, 0,
 	    (struct sockaddr *)&ip->sin, sizeof(ip->sin))) != SOCKET_ERROR)
 		return (len);
-	
+
 	return (-1);
 }
 

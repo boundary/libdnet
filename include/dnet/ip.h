@@ -19,6 +19,9 @@
 #define IP_OPT_LEN_MAX	40
 #define IP_HDR_LEN_MAX	(IP_HDR_LEN + IP_OPT_LEN_MAX)
 
+#define IP_MIN_PKT	576		/* minimum required packet size */
+#define IP_MTU_MIN	68		/* minimum MTU */
+
 #define IP_LEN_MAX	65535
 #define IP_LEN_MIN	IP_HDR_LEN
 
@@ -230,6 +233,8 @@ struct ip_hdr {
 #define IP_PROTO_SCTP		132		/* Stream Ctrl Transmission */
 #define IP_PROTO_FC		133		/* Fibre Channel */
 #define IP_PROTO_RSVPIGN	134		/* RSVP-E2E-IGNORE */
+#define IP_PROTO_MOBILITY	135		/* Mobility header */
+#define IP_PROTO_UDPLITE	136		/* UDP Lite */
 #define	IP_PROTO_RAW		255		/* Raw IP packets */
 #define IP_PROTO_RESERVED	IP_PROTO_RAW	/* Reserved */
 #define	IP_PROTO_MAX		255
@@ -400,6 +405,9 @@ struct ip_opt {
 #define IP_ADDR_LOOPBACK	(htonl(0x7f000001))	/* 127.0.0.1 */
 #define IP_ADDR_MCAST_ALL	(htonl(0xe0000001))	/* 224.0.0.1 */
 #define IP_ADDR_MCAST_LOCAL	(htonl(0xe00000ff))	/* 224.0.0.255 */
+
+#define IP_LOOPBACK(i)  (((uint32_t)(i) & htonl(0xff000000)) == \
+				htonl(0x7f000000))
 
 #define ip_pack_hdr(hdr, tos, len, id, off, ttl, p, src, dst) do {	\
 	struct ip_hdr *ip_pack_p = (struct ip_hdr *)(hdr);		\

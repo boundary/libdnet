@@ -35,7 +35,7 @@ struct ip_handle {
 	route_t			*route;
 	int			 fd;
 	struct sockaddr_in	 sin;
-	
+
 	LIST_HEAD(, ip_intf)	 ip_intf_list;
 };
 
@@ -50,10 +50,10 @@ _add_ip_intf(const struct intf_entry *entry, void *arg)
 	    entry->intf_mtu >= ETH_LEN_MIN &&
 	    entry->intf_addr.addr_type == ADDR_TYPE_IP &&
 	    entry->intf_link_addr.addr_type == ADDR_TYPE_ETH) {
-		
+
 		if ((ipi = calloc(1, sizeof(*ipi))) == NULL)
 			return (-1);
-		
+
 		strlcpy(ipi->name, entry->intf_name, sizeof(ipi->name));
 		memcpy(&ipi->ha, &entry->intf_link_addr, sizeof(ipi->ha));
 		memcpy(&ipi->pa, &entry->intf_addr, sizeof(ipi->pa));
@@ -71,19 +71,19 @@ ip_open(void)
 
 	if ((ip = calloc(1, sizeof(*ip))) != NULL) {
 		ip->fd = -1;
-		
+
 		if ((ip->arp = arp_open()) == NULL ||
 		    (ip->intf = intf_open()) == NULL ||
 		    (ip->route = route_open()) == NULL)
 			return (ip_close(ip));
-		
+
 		if ((ip->fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
 			return (ip_close(ip));
 
 		memset(&ip->sin, 0, sizeof(ip->sin));
 		ip->sin.sin_family = AF_INET;
 		ip->sin.sin_port = htons(666);
-		
+
 		LIST_INIT(&ip->ip_intf_list);
 
 		if (intf_loop(ip->intf, _add_ip_intf, ip) != 0)
@@ -100,7 +100,7 @@ _lookup_ip_intf(ip_t *ip, ip_addr_t dst)
 
 	ip->sin.sin_addr.s_addr = dst;
 	n = sizeof(ip->sin);
-	
+
 	if (connect(ip->fd, (struct sockaddr *)&ip->sin, n) < 0)
 		return (NULL);
 
@@ -148,7 +148,7 @@ ip_send(ip_t *ip, const void *buf, size_t len)
 	int i, usec;
 
 	iph = (struct ip_hdr *)buf;
-	
+
 	if ((ipi = _lookup_ip_intf(ip, iph->ip_dst)) == NULL) {
 		errno = EHOSTUNREACH;
 		return (-1);
@@ -161,7 +161,7 @@ ip_send(ip_t *ip, const void *buf, size_t len)
 	for (i = 0, usec = 10; i < 3; i++, usec *= 100) {
 		if (arp_get(ip->arp, &arpent) == 0)
 			break;
-		
+
 		if (route_get(ip->route, &rtent) == 0 &&
 		    rtent.route_gw.addr_ip != ipi->pa.addr_ip) {
 			memcpy(&arpent.arp_pa, &rtent.route_gw,
@@ -175,14 +175,14 @@ ip_send(ip_t *ip, const void *buf, size_t len)
 	}
 	if (i == 3)
 		memset(&arpent.arp_ha.addr_eth, 0xff, ETH_ADDR_LEN);
-	
+
 	eth_pack_hdr(frame, arpent.arp_ha.addr_eth,
 	    ipi->ha.addr_eth, ETH_TYPE_IP);
 
 	if (len > ipi->mtu) {
 		u_char *p, *start, *end, *ip_data;
 		int ip_hl, fraglen;
-		
+
 		ip_hl = iph->ip_hl << 2;
 		fraglen = ipi->mtu - ip_hl;
 
@@ -192,10 +192,10 @@ ip_send(ip_t *ip, const void *buf, size_t len)
 
 		start = (u_char *)buf + ip_hl;
 		end = (u_char *)buf + len;
-		
+
 		for (p = start; p < end; ) {
 			memcpy(ip_data, p, fraglen);
-			
+
 			iph->ip_len = htons(ip_hl + fraglen);
 			iph->ip_off = htons(((p + fraglen < end) ? IP_MF : 0) |
 			    ((p - start) >> 3));
@@ -215,7 +215,7 @@ ip_send(ip_t *ip, const void *buf, size_t len)
 	i = ETH_HDR_LEN + len;
 	if (eth_send(ipi->eth, frame, i) != i)
 		return (-1);
-	
+
 	return (len);
 }
 

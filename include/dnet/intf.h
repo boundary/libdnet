@@ -11,21 +11,42 @@
 #ifndef DNET_INTF_H
 #define DNET_INTF_H
 
+#include <stdint.h>
+
 /*
  * Interface entry
  */
-#define INTF_NAME_LEN	16
+#define INTF_NAME_LEN	32
+#define INTF_VERS_LEN	32
+
+#ifdef _WIN32
+#include <iprtrmib.h>
+#endif
 
 struct intf_entry {
-	u_int		intf_len;		    /* length of entry */
+	uint32_t		intf_len;		    /* length of entry */
 	char		intf_name[INTF_NAME_LEN];   /* interface name */
-	u_short		intf_type;		    /* interface type (r/o) */
-	u_short		intf_flags;		    /* interface flags */
-	u_int		intf_mtu;		    /* interface MTU */
+#ifdef _WIN32
+	char		os_intf_name[MAX_INTERFACE_NAME_LEN];
+	char		pcap_intf_name[MAX_INTERFACE_NAME_LEN];
+	char		driver_name[MAXLEN_IFDESCR + 1];
+	char		driver_vers[INTF_VERS_LEN];
+	char		firmware_vers[INTF_VERS_LEN];
+#else
+	char		os_intf_name[INTF_NAME_LEN];
+	char		pcap_intf_name[INTF_NAME_LEN];
+	char		driver_name[INTF_VERS_LEN];
+	char		driver_vers[INTF_VERS_LEN];
+	char		firmware_vers[INTF_VERS_LEN];
+#endif
+	uint32_t		intf_index;		    /* interface index (r/o) */
+	uint16_t		intf_type;		    /* interface type (r/o) */
+	uint16_t		intf_flags;		    /* interface flags */
+	uint32_t		intf_mtu;		    /* interface MTU */
 	struct addr	intf_addr;		    /* interface address */
 	struct addr	intf_dst_addr;		    /* point-to-point dst */
 	struct addr	intf_link_addr;		    /* link-layer address */
-	u_int		intf_alias_num;		    /* number of aliases */
+	uint32_t		intf_alias_num;		    /* number of aliases */
 	struct addr	intf_alias_addrs __flexarr; /* array of aliases */
 };
 
@@ -58,8 +79,10 @@ typedef int (*intf_handler)(const struct intf_entry *entry, void *arg);
 __BEGIN_DECLS
 intf_t	*intf_open(void);
 int	 intf_get(intf_t *i, struct intf_entry *entry);
+int	 intf_get_index(intf_t *intf, struct intf_entry *entry, int af, unsigned int index);
 int	 intf_get_src(intf_t *i, struct intf_entry *entry, struct addr *src);
 int	 intf_get_dst(intf_t *i, struct intf_entry *entry, struct addr *dst);
+int	 intf_get_pcap_devname(const char *intf_name, char *pcapdev, int pcapdevlen);
 int	 intf_set(intf_t *i, const struct intf_entry *entry);
 int	 intf_loop(intf_t *i, intf_handler callback, void *arg);
 intf_t	*intf_close(intf_t *i);

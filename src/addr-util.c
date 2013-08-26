@@ -77,17 +77,17 @@ eth_ntop(const eth_addr_t *eth, char *dst, size_t len)
 	const char *x;
 	char *p = dst;
 	int i;
-	
+
 	if (len < 18)
 		return (NULL);
-	
+
 	for (i = 0; i < ETH_ADDR_LEN; i++) {
 		for (x = octet2hex[eth->data[i]]; (*p = *x) != '\0'; x++, p++)
 			;
 		*p++ = ':';
 	}
 	p[-1] = '\0';
-	
+
 	return (dst);
 }
 
@@ -95,7 +95,7 @@ char *
 eth_ntoa(const eth_addr_t *eth)
 {
 	struct addr a;
-	
+
 	addr_pack(&a, ADDR_TYPE_ETH, ETH_ADDR_BITS, eth->data, ETH_ADDR_LEN);
 	return (addr_ntoa(&a));
 }
@@ -106,7 +106,7 @@ eth_pton(const char *p, eth_addr_t *eth)
 	char *ep;
 	long l;
 	int i;
-	
+
 	for (i = 0; i < ETH_ADDR_LEN; i++) {
 		l = strtol(p, &ep, 16);
 		if (ep == p || l < 0 || l > 0xff ||
@@ -125,17 +125,17 @@ ip_ntop(const ip_addr_t *ip, char *dst, size_t len)
 	char *p = dst;
 	u_char *data = (u_char *)ip;
 	int i;
-	
+
 	if (len < 16)
 		return (NULL);
-	
+
 	for (i = 0; i < IP_ADDR_LEN; i++) {
 		for (d = octet2dec[data[i]]; (*p = *d) != '\0'; d++, p++)
 			;
 		*p++ = '.';
 	}
 	p[-1] = '\0';
-	
+
 	return (dst);
 }
 
@@ -143,7 +143,7 @@ char *
 ip_ntoa(const ip_addr_t *ip)
 {
 	struct addr a;
-	
+
 	addr_pack(&a, ADDR_TYPE_IP, IP_ADDR_BITS, ip, IP_ADDR_LEN);
 	return (addr_ntoa(&a));
 }
@@ -170,21 +170,28 @@ ip_pton(const char *p, ip_addr_t *ip)
 char *
 ip6_ntop(const ip6_addr_t *ip6, char *dst, size_t len)
 {
+	uint16_t data[IP6_ADDR_LEN / 2];
 	struct { int base, len; } best, cur;
 	char *p = dst;
 	int i;
 
 	cur.len = best.len = 0;
-	
+
 	if (len < 46)
 		return (NULL);
-	
+
+	/* Copy into 16-bit array. */
+	for (i = 0; i < IP6_ADDR_LEN / 2; i++) {
+		data[i] = ip6->data[2 * i] << 8;
+		data[i] |= ip6->data[2 * i + 1];
+	}
+
 	best.base = cur.base = -1;
 	/*
 	 * Algorithm borrowed from Vixie's inet_pton6()
 	 */
 	for (i = 0; i < IP6_ADDR_LEN; i += 2) {
-		if (*((uint16_t *)&ip6->data[i]) == 0) {
+		if (data[i / 2] == 0) {
 			if (cur.base == -1) {
 				cur.base = i;
 				cur.len = 0;
@@ -211,13 +218,12 @@ ip6_ntop(const ip6_addr_t *ip6, char *dst, size_t len)
 			i += best.len;
 		} else if (i == 12 && best.base == 0 &&
 		    (best.len == 10 || (best.len == 8 &&
-			*((uint16_t *)&ip6->data[10]) == 0xffff))) {
-			if (ip_ntop((ip_addr_t *)&ip6->data[12], p,
+			data[5] == 0xffff))) {
+			if (ip_ntop((ip_addr_t *)&data[6], p,
 			    len - (p - dst)) == NULL)
 				return (NULL);
 			return (dst);
-		} else p += sprintf(p, "%x:",
-		    ntohs(*((uint16_t *)&ip6->data[i])));
+		} else p += sprintf(p, "%x:", data[i / 2]);
 	}
 	if (best.base + 2 + best.len == IP6_ADDR_LEN) {
 		*p = '\0';
@@ -231,7 +237,7 @@ char *
 ip6_ntoa(const ip6_addr_t *ip6)
 {
 	struct addr a;
-	
+
 	addr_pack(&a, ADDR_TYPE_IP6, IP6_ADDR_BITS, ip6->data, IP6_ADDR_LEN);
 	return (addr_ntoa(&a));
 }
@@ -243,13 +249,13 @@ ip6_pton(const char *p, ip6_addr_t *ip6)
 	int i, j, n, z = -1;
 	char *ep;
 	long l;
-	
+
 	if (*p == ':')
 		p++;
-	
+
 	for (n = 0; n < 8; n++) {
 		l = strtol(p, &ep, 16);
-		
+
 		if (ep == p) {
 			if (ep[0] == ':' && z == -1) {
 				z = n;
@@ -280,7 +286,7 @@ ip6_pton(const char *p, ip6_addr_t *ip6)
 	}
 	if (n == 0 || *ep != '\0' || (z == -1 && n != 8))
 		return (-1);
-	
+
 	for (i = 0; i < z; i++) {
 		u[i] = data[i];
 	}

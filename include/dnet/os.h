@@ -19,11 +19,15 @@
 # undef IP_OPT_TS
 # undef IP_OPT_RR
 # undef IP_OPT_SSRR
+# ifdef __MINGW32__
+#include <stdint.h>
+# else
   typedef u_char	uint8_t;
   typedef u_short	uint16_t;
   typedef u_int		uint32_t;
-# ifndef __CYGWIN__
+#  ifndef __CYGWIN__
   typedef long		ssize_t;
+#  endif
 # endif
 #else
 # include <sys/param.h>
@@ -41,6 +45,12 @@
 # else
 #  include <inttypes.h>
 # endif
+#endif
+
+#ifdef _WIN32
+#define dnet_socket_t intptr_t
+#else
+#define dnet_socket_t int
 #endif
 
 #define DNET_LIL_ENDIAN		1234
@@ -125,6 +135,24 @@
 #   define __flexarr	[1]
 #  endif
 # endif
+#endif
+
+/* Portable byte swapping routines */
+#if DNET_BYTESEX == DNET_BIG_ENDIAN
+#define dnet_htons(val) (val)
+#define dnet_htonl(val) (val)
+#define dnet_htonll(val) (val)
+#define dnet_ntohs(val) (val)
+#define dnet_ntohl(val) (val)
+#define dnet_ntohll(val) (val)
+#else
+#include <stdint.h>
+#define dnet_htons(val) htons(val)
+#define dnet_htonl(val) htonl(val)
+#define dnet_htonll(val) (((uint64_t)htonl(val) << 32) | htonl((uint64_t)(val) >> 32))
+#define dnet_ntohs(val) ntohs(val)
+#define dnet_ntohl(val) ntohl(val)
+#define dnet_ntohll(val) (((uint64_t)ntohl(val) << 32) | ntohl((uint64_t)(val) >> 32))
 #endif
 
 #endif /* DNET_OS_H */

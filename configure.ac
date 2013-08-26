@@ -5,12 +5,16 @@ dnl Copyright (c) 2000 Dug Song <dugsong@monkey.org>
 dnl
 dnl $Id: configure.in 638 2007-01-20 11:39:21Z dugsong $
 
-AC_INIT(include/dnet.h)
+AC_INIT([libdnet], [1.12])
+AC_CONFIG_SRCDIR([include/dnet.h])
 AC_CONFIG_AUX_DIR(config)
 AC_SUBST(ac_aux_dir)
 
-AM_INIT_AUTOMAKE(libdnet, 1.12)
-AM_CONFIG_HEADER(include/config.h)
+AC_CONFIG_HEADERS([include/config.h])
+AM_INIT_AUTOMAKE
+
+# for libtoolize
+AC_CONFIG_MACRO_DIR([m4])
 
 dnl XXX - stop the insanity!@#$
 AM_MAINTAINER_MODE
@@ -21,8 +25,9 @@ dnl systems claim to support multiple features, but are quite b0rked.
 AC_CANONICAL_HOST
 dnl XXX - spoof AC_CYGWIN
 case "$host_os" in
-  *cygwin*) CYGWIN=yes;;
-         *) CYGWIN=no;;
+  *cygwin*) CYGWIN=yes;MINGW=no;;
+  *mingw*) CYGWIN=yes;MINGW=yes;;
+         *) CYGWIN=no;MINGW=no;;
 esac
 
 dnl Initialize prefix.
@@ -77,9 +82,11 @@ if test -r /usr/include/sgidefs.h ; then
 fi
 dnl XXX - we need MingW32 under Cygwin for win32
 if test "$CYGWIN" = yes ; then
-	if test -d /usr/include/mingw ; then
-		CPPFLAGS="$CPPFLAGS -mno-cygwin"
-		CFLAGS="$CFLAGS -mno-cygwin"
+	if test -d /usr/include/mingw || test -d /usr/i686-w64-mingw32; then
+		if test "$MINGW" = no ; then
+			CPPFLAGS="$CPPFLAGS -mno-cygwin"
+			CFLAGS="$CFLAGS -mno-cygwin"
+		fi
 		AC_DEFINE(WIN32_LEAN_AND_MEAN, 1, 
 		    [Define for faster code generation.])
 		AC_CHECK_LIB(ws2_32, main)
@@ -93,18 +100,18 @@ if test "$CYGWIN" = yes ; then
 	AC_ARG_WITH(wpdpack,
 	[  --with-wpdpack=DIR      use WinPcap developer's pack in DIR],
 	[ AC_MSG_RESULT($withval)
-	  if test -f $withval/include/packet32.h -a -f $withval/lib/packet.lib; then
+	  if test -f $withval/include/Packet32.h -a -f $withval/lib/Packet.lib; then
 	     owd=`pwd`
 	     if cd $withval; then withval=`pwd`; cd $owd; fi
 	     CFLAGS="$CFLAGS -I$withval/include"
-	     LIBS="$LIBS -L$withval/lib -lpacket"
+	     LIBS="$LIBS -L$withval/lib -lpacket -lwpcap"
 	  else
 	     AC_MSG_ERROR(packet32.h or packet.lib not found in $withval)
 	  fi ],
 	[ for dir in ${prefix} ${HOME}/WPdpack ; do
 	     if test -f ${dir}/include/packet32.h -a -f ${dir}/lib/packet.lib; then
 	        CFLAGS="$CFLAGS -I${dir}/include"
-		LIBS="$LIBS -L${dir}/lib -lpacket"
+		LIBS="$LIBS -L${dir}/lib -lpacket -lpcap"
 		have_pcap=yes
 		break;
 	     fi
@@ -161,7 +168,12 @@ AM_CONDITIONAL(HAVE_CHECK, test "x$CHECKLIB" != "x")
 dnl Checks for header files.
 AC_HEADER_STDC
 if test "$CYGWIN" = yes ; then
-	AC_CHECK_HEADERS(Iphlpapi.h winsock2.h)
+	AC_CHECK_HEADERS([windows.h iphlpapi.h], [], [],
+					 [[#ifdef HAVE_WINDOWS_H
+					  # include <windows.h>
+					  #endif
+					  ]])
+	AC_CHECK_HEADERS([winsock2.h])
 else
 	AC_CHECK_HEADERS(fcntl.h unistd.h)
 	AC_CHECK_HEADERS(sys/bufmod.h sys/dlpi.h sys/dlpihdr.h sys/dlpi_ext.h \
@@ -214,7 +226,7 @@ if test "$CYGWIN" != yes ; then
 fi
 
 dnl Check for arp interface.
-if test "$ac_cv_header_Iphlpapi_h" = yes ; then
+if test "$ac_cv_header_iphlpapi_h" = yes ; then
 	AC_LIBOBJ([arp-win32])
 elif test "$ac_cv_dnet_ioctl_arp" = yes ; then
 	AC_LIBOBJ([arp-ioctl])
@@ -225,7 +237,7 @@ else
 fi
 
 dnl Check for Ethernet interface.
-if test "$ac_cv_header_Iphlpapi_h" = yes ; then
+if test "$ac_cv_header_iphlpapi_h" = yes ; then
 	AC_LIBOBJ([eth-win32])
 elif test "$ac_cv_header_net_pfilt_h" = yes ; then
 	AC_LIBOBJ([eth-pfilt])
@@ -245,7 +257,7 @@ else
 fi
 
 dnl Check for firewall interface.
-if test "$ac_cv_header_Iphlpapi_h" = yes ; then
+if test "$ac_cv_header_iphlpapi_h" = yes ; then
         AC_LIBOBJ([fw-pktfilter])
 elif test "$ac_cv_header_net_pfvar_h" = yes ; then
 	AC_LIBOBJ([fw-pf])
@@ -270,14 +282,14 @@ else
 fi
 
 dnl Check for network interface interface.
-if test "$ac_cv_header_Iphlpapi_h" = yes ; then
+if test "$ac_cv_header_iphlpapi_h" = yes ; then
 	AC_LIBOBJ([intf-win32])
 else
 	AC_LIBOBJ([intf])
 fi
 
 dnl Check for raw IP interface.
-if test "$ac_cv_header_Iphlpapi_h" = yes ; then
+if test "$ac_cv_header_iphlpapi_h" = yes ; then
 	AC_LIBOBJ([ip-win32])
 elif test "$ac_cv_dnet_rawip_cooked" = yes ; then
 	AC_LIBOBJ([ip-cooked])
@@ -286,7 +298,7 @@ else
 fi
 
 dnl Check for routing interface.
-if test "$ac_cv_header_Iphlpapi_h" = yes ; then
+if test "$ac_cv_header_iphlpapi_h" = yes ; then
 	AC_LIBOBJ([route-win32])
 elif test "$ac_cv_dnet_route_h_has_rt_msghdr" = yes ; then
 	AC_LIBOBJ([route-bsd])
