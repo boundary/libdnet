@@ -23,7 +23,7 @@ struct addr {
 		eth_addr_t	__eth;
 		ip_addr_t	__ip;
 		ip6_addr_t	__ip6;
-		
+
 		uint8_t		__data8[16];
 		uint16_t	__data16[8];
 		uint32_t	__data32[4];
@@ -44,6 +44,8 @@ struct addr {
 
 __BEGIN_DECLS
 int	 addr_cmp(const struct addr *a, const struct addr *b);
+
+int	 intf_addr_cmp(const struct addr *a, const struct addr *b);
 
 int	 addr_bcast(const struct addr *a, struct addr *b);
 int	 addr_net(const struct addr *a, struct addr *b);

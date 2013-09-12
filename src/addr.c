@@ -78,6 +78,31 @@ addr_cmp(const struct addr *a, const struct addr *b)
 }
 
 int
+intf_addr_cmp(const struct addr *a, const struct addr *b)
+{
+	int i, j, k;
+
+	if ((i = a->addr_type - b->addr_type) != 0)
+		return (i);
+
+	if ((i = a->addr_bits - b->addr_bits) != 0)
+		return (i);
+
+	/*
+	 * Compare all bytes in an interface address, regardless of addr_bits
+	 */
+	switch (b->addr_type) {
+		case ADDR_TYPE_ETH:
+			return memcmp(a->addr_data8, b->addr_data8, ETH_ADDR_LEN);
+		case ADDR_TYPE_IP:
+			return memcmp(a->addr_data8, b->addr_data8, IP_ADDR_LEN);
+		case ADDR_TYPE_IP6:
+			return memcmp(a->addr_data8, b->addr_data8, IP6_ADDR_LEN);
+	}
+	return addr_cmp(a, b);
+}
+
+int
 addr_net(const struct addr *a, struct addr *b)
 {
 	uint32_t mask;
