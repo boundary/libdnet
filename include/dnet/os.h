@@ -88,11 +88,13 @@
 
 /* Nastiness from old BIND code. */
 #ifndef DNET_BYTESEX
-# if defined(vax) || defined(ns32000) || defined(sun386) || defined(i386) || \
+# if defined (__LITTLE_ENDIAN__) || \
+    defined(vax) || defined(ns32000) || defined(sun386) || defined(i386) || \
     defined(MIPSEL) || defined(_MIPSEL) || defined(BIT_ZERO_ON_RIGHT) || \
     defined(__alpha__) || defined(__alpha)
 #  define DNET_BYTESEX		DNET_LIL_ENDIAN
-# elif defined(sel) || defined(pyr) || defined(mc68000) || defined(sparc) || \
+# elif defined (__BIG_ENDIAN__) \
+    defined(sel) || defined(pyr) || defined(mc68000) || defined(sparc) || \
     defined(is68k) || defined(tahoe) || defined(ibm032) || defined(ibm370) || \
     defined(MIPSEB) || defined(_MIPSEB) || defined(_IBMR2) || defined(DGUX) ||\
     defined(apollo) || defined(__convex__) || defined(_CRAY) || \
