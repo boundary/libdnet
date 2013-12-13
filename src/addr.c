@@ -80,7 +80,7 @@ addr_cmp(const struct addr *a, const struct addr *b)
 int
 intf_addr_cmp(const struct addr *a, const struct addr *b)
 {
-	int i, j, k;
+	int i;
 
 	if ((i = a->addr_type - b->addr_type) != 0)
 		return (i);
@@ -338,11 +338,13 @@ addr_ston(const struct sockaddr *sa, struct addr *a)
 # endif
 #endif
 	case AF_UNSPEC:
+#ifdef __linux__
 	case ARP_HRD_ETH:	/* XXX- Linux arp(7) */
 	case ARP_HRD_APPLETALK: /* AppleTalk DDP */
 	case ARP_HRD_INFINIBAND: /* InfiniBand */
 	case ARP_HDR_IEEE80211: /* IEEE 802.11 */
 	case ARP_HRD_IEEE80211_RADIOTAP: /* IEEE 802.11 + radiotap header */
+#endif
 		a->addr_type = ADDR_TYPE_ETH;
 		a->addr_bits = ETH_ADDR_BITS;
 		memcpy(&a->addr_eth, sa->sa_data, ETH_ADDR_LEN);
@@ -367,9 +369,11 @@ addr_ston(const struct sockaddr *sa, struct addr *a)
 		a->addr_bits = IP_ADDR_BITS;
 		a->addr_ip = so->sin.sin_addr.s_addr;
 		break;
+#ifdef __linux__
 	case ARP_HRD_VOID:
 		memset(&a->addr_eth, 0, ETH_ADDR_LEN);
 		break;
+#endif
 	default:
 		errno = EINVAL;
 		return (-1);
