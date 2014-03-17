@@ -52,7 +52,7 @@ struct eth_hdr {
 #define ETH_TYPE_8021ad_2	0x9200	/* CISCO double tagging */
 #define ETH_TYPE_8021ad_3	0x9300	/* CISCO double tagging */
 
-struct eth_vlan_hdr {
+struct eth_8021q_hdr {
 	uint16_t	priority_c_vid;	/* priority | VLAN ID, or Tag Control ID (TCI) */
 	uint16_t	len_eth_type;	/* length or type (802.3 / Eth 2) */
 };
