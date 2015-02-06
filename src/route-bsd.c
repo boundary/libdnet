@@ -61,7 +61,7 @@ http://www.opensource.apple.com/source/network_cmds/network_cmds-329.2.2/netstat
 #define RT_MSGHDR_ALIGNMENT sizeof(unsigned long)
 #endif
 
-#ifdef RT_ROUNDUP
+#if defined(RT_ROUNDUP) && defined(__NetBSD__)
 /* NetBSD defines this macro rounding to 64-bit boundaries.
    http://fxr.watson.org/fxr/ident?v=NETBSD;i=RT_ROUNDUP */
 #define ROUNDUP(a) RT_ROUNDUP(a)
