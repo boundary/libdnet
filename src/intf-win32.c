@@ -377,8 +377,27 @@ intf_get_src(intf_t *intf, struct intf_entry *entry, struct addr *src)
 int
 intf_get_dst(intf_t *intf, struct intf_entry *entry, struct addr *dst)
 {
-	errno = ENOSYS;
-	SetLastError(ERROR_NOT_SUPPORTED);
+	IP_ADAPTER_ADDRESSES *a;
+	DWORD intfIdx;
+
+	if (dst->addr_type != ADDR_TYPE_IP) {
+		errno = EINVAL;
+		return (-1);
+	}
+
+	if (_refresh_tables(intf) < 0)
+		return (-1);
+
+	if (GetBestInterface(dst->addr_ip, &intfIdx) != NO_ERROR)
+		return (-1);
+
+	for (a = intf->iftable; a != NULL; a = a->Next) {
+		if (a->IfIndex == intfIdx) {
+			_adapter_address_to_entry(intf, a, entry);
+			return (0);
+		}
+	}
+
 	return (-1);
 }
 
