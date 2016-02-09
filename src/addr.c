@@ -343,6 +343,7 @@ addr_ston(const struct sockaddr *sa, struct addr *a)
 	case ARP_HRD_APPLETALK: /* AppleTalk DDP */
 	case ARP_HRD_INFINIBAND: /* InfiniBand */
 	case ARP_HDR_IEEE80211: /* IEEE 802.11 */
+	case ARP_HRD_IEEE80211_PRISM: /* IEEE 802.11 + prism header */
 	case ARP_HRD_IEEE80211_RADIOTAP: /* IEEE 802.11 + radiotap header */
 #endif
 		a->addr_type = ADDR_TYPE_ETH;
