@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
 import glob, os, sys
-from distutils.core import setup, Extension
+try:
+    from setuptools import setup, Extension
+except ImportError:
+    from distutils.core import setup, Extension
+
 
 dnet_srcs = [ '@srcdir@/dnet.c' ]
 dnet_incdirs = [ '@top_srcdir@/include' ]
