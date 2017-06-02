@@ -1,0 +1,6 @@
+language: c
+matrix:
+  include:
+    - os: linux
+    - os: osx
+script: ./autogen.sh && ./configure && make && cd python && python setup.py bdist_wheel
