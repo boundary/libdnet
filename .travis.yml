@@ -3,5 +3,5 @@ matrix:
   include:
     - os: linux
     - os: osx
-install: pip install setuptools wheel
+install: pip install --user setuptools wheel
 script: ./autogen.sh && ./configure && make && pushd python && python setup.py bdist_wheel
