@@ -3,4 +3,4 @@ matrix:
   include:
     - os: linux
     - os: osx
-script: ./autogen.sh && ./configure && make && cd python && python setup.py bdist_wheel
+script: ./autogen.sh && ./configure && make && pushd python && python setup.py bdist_wheel
