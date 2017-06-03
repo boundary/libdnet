@@ -2,6 +2,10 @@ language: c
 matrix:
   include:
     - os: linux
+      compiler: gcc
+    - os: linux
+      compiler: clang
     - os: osx
+
 install: pip install --user setuptools wheel
 script: ./autogen.sh && ./configure && make && pushd python && python setup.py bdist_wheel
