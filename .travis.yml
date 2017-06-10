@@ -1,11 +1,9 @@
 language: c
-matrix:
-  include:
-    - os: linux
-      compiler: gcc
-    - os: linux
-      compiler: clang
-    - os: osx
-
+os:
+  - linux
+  - osx
+compiler:
+  - gcc
+  - clang
 install: pip install --user setuptools wheel
 script: ./autogen.sh && ./configure && make && pushd python && python setup.py bdist_wheel
