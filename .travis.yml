@@ -6,4 +6,6 @@ compiler:
   - gcc
   - clang
 install: pip install --user setuptools wheel
-script: ./autogen.sh && ./configure && make && pushd python && python setup.py bdist_wheel
+script:
+  - ./autogen.sh && ./configure && make && pushd python && python setup.py bdist_wheel && popd
+  - make check
